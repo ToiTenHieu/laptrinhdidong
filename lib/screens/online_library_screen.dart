@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:percent_indicator/linear_percent_indicator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'book_detail_screen.dart';
+import 'checkout_screen.dart';
 
 class OnlineLibraryScreen extends StatefulWidget {
   const OnlineLibraryScreen({super.key});
@@ -9,292 +12,300 @@ class OnlineLibraryScreen extends StatefulWidget {
 }
 
 class _OnlineLibraryScreenState extends State<OnlineLibraryScreen> {
-  String selectedFilter = 'All';
-
-  // 📚 Dữ liệu mẫu
-  final List<Map<String, dynamic>> books = [
-    {
-      "title": "Tây du ký",
-      "author": "Ngô Thừa Ân",
-      "image": "lib/assets/images/tayduky.jpg",
-      "status": "Đang đọc",
-      "currentPage": 650,
-      "totalPage": 1000,
-      "lastRead": "2 tiếng trước",
-    },
-    {
-      "title": "Tôi thấy hoa vàng trên cỏ xanh",
-      "author": "Nguyễn Nhật Ánh",
-      "image": "lib/assets/images/hoavang.jpg",
-      "status": "Đang đọc",
-      "currentPage": 45,
-      "totalPage": 100,
-      "lastRead": "2 ngày trước",
-    },
-    {
-      "title": "Thiên Long bát bộ",
-      "author": "Kim Dung",
-      "image": "lib/assets/images/thienlong.jpg",
-      "status": "Hoàn thành",
-      "currentPage": 388,
-      "totalPage": 388,
-      "lastRead": "2 tuần trước",
-    },
-  ];
+  String searchQuery = "";
 
   @override
   Widget build(BuildContext context) {
-    List<Map<String, dynamic>> filteredBooks = books.where((book) {
-      if (selectedFilter == 'All') return true;
-      if (selectedFilter == 'Reading') return book["status"] == "Đang đọc";
-      if (selectedFilter == 'Completed') return book["status"] == "Hoàn thành";
-      return true;
-    }).toList();
-
-    int readingCount =
-        books.where((b) => b["status"] == "Đang đọc").length;
-    int completedCount =
-        books.where((b) => b["status"] == "Hoàn thành").length;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Thư viện trực tuyến"),
-        centerTitle: true,
-      ),
       backgroundColor: const Color(0xFFF6F8FB),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 📊 Thống kê
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard("Reading", readingCount.toString(),
-                      Colors.blueAccent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                      "Completed", completedCount.toString(), Colors.green),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // 🟦 Bộ lọc
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: ["All", "Reading", "Completed"]
-                  .map((f) => _buildFilterButton(f))
-                  .toList(),
-            ),
-            const SizedBox(height: 12),
-
-            // 📚 Danh sách sách
-            Expanded(
-              child: ListView.builder(
-                itemCount: filteredBooks.length,
-                itemBuilder: (context, index) {
-                  var book = filteredBooks[index];
-                  double percent =
-                      book["currentPage"] / book["totalPage"];
-                  return _buildBookCard(book, percent);
-                },
-              ),
-            ),
-          ],
+      appBar: AppBar(
+        title: const Text(
+          "Thư viện trực tuyến",
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-      ),
-    );
-  }
-
-  // 🧱 Widget con
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: const Offset(0, 3),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+              );
+            },
           ),
         ],
       ),
-      child: Column(
+
+      // Nội dung chính
+      body: Column(
         children: [
-          Text(title,
-              style: TextStyle(
-                  color: Colors.black87, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterButton(String label) {
-    bool isSelected = selectedFilter == label;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedFilter = label;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blueAccent : Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBookCard(Map<String, dynamic> book, double percent) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Ảnh bìa
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                book["image"],
-                width: 55,
-                height: 75,
-                fit: BoxFit.cover,
+          // 🔍 Ô tìm kiếm
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: "Tìm kiếm sách hoặc tác giả",
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
+              onChanged: (value) {
+                setState(() => searchQuery = value.toLowerCase());
+              },
             ),
-            const SizedBox(width: 12),
+          ),
 
-            // Thông tin
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(book["title"],
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text(book["author"],
-                      style: const TextStyle(color: Colors.black54)),
-                  const SizedBox(height: 6),
+          // 🧾 Danh sách sách
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection("books").snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                  // Trạng thái đọc
-                  Row(
-                    children: [
-                      Icon(
-                        book["status"] == "Đang đọc"
-                            ? Icons.auto_stories
-                            : Icons.check_circle,
-                        color: book["status"] == "Đang đọc"
-                            ? Colors.blue
-                            : Colors.green,
-                        size: 16,
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "📭 Chưa có sách nào trong thư viện.",
+                      style: TextStyle(color: Colors.black54, fontSize: 16),
+                    ),
+                  );
+                }
+
+                final books = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final title = (data['title'] ?? '').toString().toLowerCase();
+                  final author = (data['author'] ?? '').toString().toLowerCase();
+                  return title.contains(searchQuery) ||
+                      author.contains(searchQuery);
+                }).toList();
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: books.length,
+                  itemBuilder: (context, index) {
+                    final data = books[index].data() as Map<String, dynamic>;
+
+                    final title = data['title'] ?? "Không có tiêu đề";
+                    final author = data['author'] ?? "Không rõ tác giả";
+                    final description = data['description'] ?? "";
+                    final price = data['price']?.toString() ?? "0";
+                    final imagePath = data['image'] ?? ""; // 🔥 sửa lại từ 'image' → 'picture'
+                    final rating = data['rating']?.toString() ?? "4.0";
+
+                    // Xác định ảnh hiển thị
+                    ImageProvider imageProvider;
+                    if (imagePath.startsWith('http')) {
+                      imageProvider = NetworkImage(imagePath);
+                    } else if (imagePath.contains('assets/')) {
+                      imageProvider = AssetImage(imagePath);
+                    } else {
+                      imageProvider =
+                          const AssetImage('assets/images/default_book.jpg');
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.15),
+                            spreadRadius: 1,
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        book["status"],
-                        style: TextStyle(
-                          color: book["status"] == "Đang đọc"
-                              ? Colors.blue
-                              : Colors.green,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookDetailScreen(
+                                title: title,
+                                author: author,
+                                tag: "",
+                                imagePath: imagePath,
+                                description: description,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Row(
+                            children: [
+                              // 🖼 Ảnh sách
+                              Container(
+                                width: 55,
+                                height: 75,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: imageProvider,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+
+                              // 📘 Thông tin sách
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      author,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.black54,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      description.isNotEmpty
+                                          ? description
+                                          : "Không có mô tả",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.black45,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.star,
+                                            size: 14, color: Colors.amber),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          rating,
+                                          style: const TextStyle(
+                                              color: Colors.amber,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // 💸 Giá + nút Thêm
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "$price vnd",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final user =
+                                          FirebaseAuth.instance.currentUser;
+
+                                      if (user == null) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    "Vui lòng đăng nhập để thêm vào giỏ hàng")));
+                                        return;
+                                      }
+
+                                      final cartRef = FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(user.uid)
+                                          .collection('cart')
+                                          .doc(title);
+
+                                      final cartDoc = await cartRef.get();
+                                      final parsedPrice = double.tryParse(
+                                              price.replaceAll(',', '')) ??
+                                          0;
+
+                                      if (cartDoc.exists) {
+                                        await cartRef.update({
+                                          'quantity': FieldValue.increment(1),
+                                        });
+                                      } else {
+                                        await cartRef.set({
+                                          'title': title,
+                                          'author': author,
+                                          'price': parsedPrice,
+                                          'image': imagePath,
+                                          'quantity': 1,
+                                          'createdAt':
+                                              FieldValue.serverTimestamp(),
+                                        });
+                                      }
+
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(SnackBar(
+                                        content: Text(
+                                            'Đã thêm "$title" vào giỏ hàng!'),
+                                        duration:
+                                            const Duration(milliseconds: 800),
+                                      ));
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.black87,
+                                      minimumSize: const Size(80, 32),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.add,
+                                        size: 16, color: Colors.white),
+                                    label: const Text(
+                                      "Thêm",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Tiến độ đọc
-                  Text(
-                    "Trang ${book["currentPage"]}/${book["totalPage"]}",
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  LinearPercentIndicator(
-                    lineHeight: 6,
-                    percent: percent,
-                    progressColor: Colors.blueAccent,
-                    backgroundColor: Colors.grey.shade200,
-                    barRadius: const Radius.circular(10),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Lần đọc cuối
-                  Text(
-                    "Lần đọc cuối cùng: ${book["lastRead"]}",
-                    style:
-                        const TextStyle(color: Colors.black45, fontSize: 12),
-                  ),
-                ],
-              ),
+                    );
+                  },
+                );
+              },
             ),
-
-            // Nút hành động
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("${(percent * 100).toInt()}%",
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        book["status"] == "Hoàn thành"
-                            ? Colors.green
-                            : Colors.blueAccent,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: Icon(
-                    book["status"] == "Hoàn thành"
-                        ? Icons.book
-                        : Icons.play_arrow,
-                    size: 16,
-                  ),
-                  label: Text(
-                    book["status"] == "Hoàn thành" ? "Đọc" : "Tiếp tục",
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
