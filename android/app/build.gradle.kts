@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.example.library_manager"
-    compileSdk = 34 // 👈 nên fix cứng, tránh lỗi Flutter không load biến
+    compileSdk = 36 // 🔥 nâng lên ít nhất 35 hoặc 36 để tương thích plugin
 
     defaultConfig {
         applicationId = "com.example.library_manager"
-        minSdk = flutter.minSdkVersion // 👈 Firebase yêu cầu tối thiểu 23
-        targetSdk = 34
+        minSdk = flutter.minSdkVersion // 👈 Firebase và image_picker cần tối thiểu 23
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
@@ -32,6 +32,7 @@ android {
         }
     }
 }
+
 
 flutter {
     source = "../.."

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../data/app_data.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/bottom_nav.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -10,252 +11,163 @@ class ReportScreen extends StatefulWidget {
 }
 
 class _ReportScreenState extends State<ReportScreen> {
-  String? selectedReader;
-  String? selectedBook;
-  DateTime borrowDate = DateTime.now();
-  DateTime returnDate = DateTime.now().add(const Duration(days: 7));
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  void addBorrowTicket() {
-    if (selectedReader == null || selectedBook == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng chọn độc giả và sách!")),
-      );
-      return;
-    }
+  String _formatDate(DateTime date) {
+    return "${date.day}/${date.month}/${date.year}";
+  }
 
-    AppData.addBorrowTicket(
-      readerId: selectedReader!,
-      bookTitle: selectedBook!,
-      borrowDate: borrowDate,
-      returnDate: returnDate,
-    );
-
-    setState(() {
-      selectedReader = null;
-      selectedBook = null;
+  Future<void> _confirmReturn(String docId) async {
+    try {
+    await _firestore.collection('borrowed_books').doc(docId).update({
+      'status': 'đã trả',
     });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Đã xác nhận trả sách")),
+      );
+    } catch (e) {
+      print("❌ Lỗi khi cập nhật trạng thái: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ Lỗi khi cập nhật: $e")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final userId = _auth.currentUser?.uid;
+    print("🟢 UID hiện tại: $userId");
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Báo cáo - Phiếu mượn"),
+        title: const Text("Phiếu mượn của tôi"),
         backgroundColor: Colors.blue[600],
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ======= FORM TẠO PHIẾU MƯỢN =======
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('borrowed_books')
+            .orderBy('borrow_date', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          // Debug log để xem trạng thái stream
+          print("📡 Kết nối: ${snapshot.connectionState}");
+          if (snapshot.hasError) {
+            print("❌ Lỗi Firestore: ${snapshot.error}");
+            return Center(
+              child: Text("Lỗi Firestore: ${snapshot.error}"),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Không có dữ liệu
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            print("📭 Không có phiếu mượn nào trong Firestore cho user $userId");
+            return const Center(
+              child: Text(
+                "📭 Bạn chưa có phiếu mượn nào",
+                style: TextStyle(fontSize: 16, color: Colors.black54),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Tạo phiếu mượn mới",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+            );
+          }
+
+          final tickets = snapshot.data!.docs;
+          print("✅ Tổng số phiếu mượn: ${tickets.length}");
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: tickets.length,
+            itemBuilder: (context, index) {
+              final data = tickets[index].data() as Map<String, dynamic>;
+              print("📘 Dữ liệu phiếu $index: $data");
+
+              final title = data['book_title'] ?? 'Không rõ';
+              final author = data['book_author'] ?? 'Không rõ';
+              final status = data['status'] ?? 'đang mượn';
+
+              DateTime? borrowDate;
+              DateTime? dueDate;
+              try {
+                borrowDate = (data['borrow_date'] as Timestamp).toDate();
+                dueDate = (data['due_date'] as Timestamp).toDate();
+              } catch (e) {
+                print("⚠️ Lỗi chuyển đổi ngày: $e");
+              }
+
+              final image = data['book_image'];
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Chọn độc giả
-                  DropdownButtonFormField<String>(
-                    value: selectedReader,
-                    decoration: const InputDecoration(
-                      labelText: "Chọn độc giả",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: AppData.readers.map((r) {
-                      return DropdownMenuItem<String>(
-                        value: r["id"] as String,
-                        child: Text("${r["id"]} - ${r["name"]}"),
-                      );
-                    }).toList(),
-                    onChanged: (val) => setState(() => selectedReader = val),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Chọn sách
-                  DropdownButtonFormField<String>(
-                    value: selectedBook,
-                    decoration: const InputDecoration(
-                      labelText: "Chọn sách",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: AppData.books.map((b) {
-                      return DropdownMenuItem<String>(
-                        value: b["title"] as String,
-                        child: Text(b["title"]),
-                      );
-                    }).toList(),
-                    onChanged: (val) => setState(() => selectedBook = val),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Chọn ngày mượn
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: "Ngày mượn",
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.calendar_today),
-                              onPressed: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: borrowDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2100),
-                                );
-                                if (date != null) {
-                                  setState(() => borrowDate = date);
-                                }
-                              },
-                            ),
-                          ),
-                          controller: TextEditingController(
-                            text:
-                                "${borrowDate.day}/${borrowDate.month}/${borrowDate.year}",
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: "Ngày trả",
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.calendar_today),
-                              onPressed: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: returnDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2100),
-                                );
-                                if (date != null) {
-                                  setState(() => returnDate = date);
-                                }
-                              },
-                            ),
-                          ),
-                          controller: TextEditingController(
-                            text:
-                                "${returnDate.day}/${returnDate.month}/${returnDate.year}",
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Nút thêm phiếu mượn
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.add),
-                      label: const Text("Thêm phiếu mượn"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[600],
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: addBorrowTicket,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ======= DANH SÁCH PHIẾU MƯỢN =======
-            const Text(
-              "Danh sách phiếu mượn",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 12),
-            AppData.borrowTickets.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        "Chưa có phiếu mượn nào",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: AppData.borrowTickets.length,
-                    itemBuilder: (context, index) {
-                      final ticket = AppData.borrowTickets[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: ListTile(
-                          leading: const Icon(Icons.book, color: Colors.blue),
-                          title: Text(ticket["bookTitle"]),
-                          subtitle: Text(
-                            "Độc giả: ${ticket["readerId"]}\n"
-                            "Mượn: ${ticket["borrowDate"].toString().substring(0, 10)} - "
-                            "Trả: ${ticket["returnDate"].toString().substring(0, 10)}",
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              setState(() {
-                                AppData.deleteBorrowTicket(index);
-                              });
+                  ],
+                ),
+                child: ListTile(
+                  leading: image != null && image.toString().isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            image,
+                            width: 55,
+                            height: 75,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, _, __) {
+                              print("⚠️ Lỗi load ảnh: $image");
+                              return const Icon(Icons.book,
+                                  color: Colors.blue);
                             },
                           ),
-                        ),
-                      );
-                    },
+                        )
+                      : const Icon(Icons.book, color: Colors.blue),
+                  title: Text(
+                    title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-          ],
-        ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      "Tác giả: $author\n"
+                      "📅 ${borrowDate != null ? _formatDate(borrowDate) : '?'} → ${dueDate != null ? _formatDate(dueDate) : '?'}\n"
+                      "Trạng thái: ${status.toUpperCase()}",
+                      style: const TextStyle(height: 1.4),
+                    ),
+                  ),
+                  trailing: status == 'đang mượn'
+                      ? ElevatedButton(
+                          onPressed: () =>
+                              _confirmReturn(tickets[index].id),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            "Xác nhận\ntrả",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        )
+                      : const Icon(Icons.check_circle,
+                          color: Colors.grey, size: 28),
+                ),
+              );
+            },
+          );
+        },
       ),
       bottomNavigationBar: buildBottomNav(context, 2),
     );

@@ -4,6 +4,7 @@ import '../screens/book_screen.dart';
 import '../screens/report_screen.dart';
 import '../screens/reader_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/admin_home_screen.dart';
 
 Widget buildBottomNav(BuildContext context, int currentIndex) {
   return BottomNavigationBar(
@@ -16,7 +17,7 @@ Widget buildBottomNav(BuildContext context, int currentIndex) {
       Widget nextPage;
       switch (index) {
         case 0:
-          nextPage = const HomeScreen();
+          nextPage = const AdminHomeScreen();
           break;
         case 1:
           nextPage = const BookScreen();
