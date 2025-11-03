@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'cloudinary_service.dart';
 import '../widgets/bottom_nav.dart';
+
 class BookScreen extends StatefulWidget {
   const BookScreen({super.key});
 
@@ -17,6 +18,9 @@ class _BookScreenState extends State<BookScreen> {
 
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
+  final TextEditingController _searchController = TextEditingController();
+
+  String searchKeyword = "";
 
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
@@ -35,8 +39,10 @@ class _BookScreenState extends State<BookScreen> {
         TextEditingController(text: book?['description'] ?? '');
     final priceController = TextEditingController(text: book?['price'] ?? '');
     final ratingController = TextEditingController(text: book?['rating'] ?? '');
-    String imageUrl = book?['image'] ?? '';
+    final quantityController =
+        TextEditingController(text: book?['quantity']?.toString() ?? '');
 
+    String imageUrl = book?['image'] ?? '';
     _selectedImage = null;
 
     showDialog(
@@ -57,7 +63,7 @@ class _BookScreenState extends State<BookScreen> {
             }
 
             return AlertDialog(
-              title: Text(book == null ? "Thêm sách mới" : "Chỉnh sửa sách"),
+              title: Text(book == null ? "📚 Thêm sách mới" : "✏️ Chỉnh sửa sách"),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -92,10 +98,12 @@ class _BookScreenState extends State<BookScreen> {
                     const SizedBox(height: 10),
                     TextField(
                         controller: titleController,
-                        decoration: const InputDecoration(labelText: "Tên sách")),
+                        decoration:
+                            const InputDecoration(labelText: "Tên sách")),
                     TextField(
                         controller: authorController,
-                        decoration: const InputDecoration(labelText: "Tác giả")),
+                        decoration:
+                            const InputDecoration(labelText: "Tác giả")),
                     TextField(
                         controller: tagController,
                         decoration: const InputDecoration(labelText: "Thẻ (tag)")),
@@ -104,10 +112,17 @@ class _BookScreenState extends State<BookScreen> {
                         decoration: const InputDecoration(labelText: "Giá")),
                     TextField(
                         controller: ratingController,
-                        decoration: const InputDecoration(labelText: "Đánh giá")),
+                        decoration:
+                            const InputDecoration(labelText: "Đánh giá")),
+                    TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.number,
+                        decoration:
+                            const InputDecoration(labelText: "Số lượng sách")),
                     TextField(
                         controller: descriptionController,
-                        decoration: const InputDecoration(labelText: "Mô tả")),
+                        decoration:
+                            const InputDecoration(labelText: "Mô tả")),
                   ],
                 ),
               ),
@@ -121,32 +136,43 @@ class _BookScreenState extends State<BookScreen> {
                   onPressed: () async {
                     String finalImageUrl = imageUrl;
 
-                    // ✅ Nếu có chọn ảnh mới, upload Cloudinary
-                    if (_selectedImage != null) {
-                      final uploadedUrl =
-                          await CloudinaryService.uploadImage(_selectedImage!);
-                      if (uploadedUrl != null) {
-                        finalImageUrl = uploadedUrl;
+                    try {
+                      if (_selectedImage != null) {
+                        final uploadedUrl =
+                            await CloudinaryService.uploadImage(_selectedImage!);
+                        if (uploadedUrl != null) {
+                          finalImageUrl = uploadedUrl;
+                        }
+                      }
+
+                      final data = {
+                        "title": titleController.text.trim(),
+                        "author": authorController.text.trim(),
+                        "tag": tagController.text.trim(),
+                        "image": finalImageUrl,
+                        "description": descriptionController.text.trim(),
+                        "price": priceController.text.trim(),
+                        "rating": ratingController.text.trim(),
+                        "quantity": int.tryParse(quantityController.text) ?? 0,
+                      };
+
+                      if (book == null) {
+                        await booksRef.add(data);
+                      } else {
+                        await booksRef.doc(book.id).update(data);
+                      }
+
+                      if (context.mounted) Navigator.pop(context);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("⚠️ Lỗi khi lưu sách: $e"),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
                       }
                     }
-
-                    final data = {
-                      "title": titleController.text.trim(),
-                      "author": authorController.text.trim(),
-                      "tag": tagController.text.trim(),
-                      "image": finalImageUrl,
-                      "description": descriptionController.text.trim(),
-                      "price": priceController.text.trim(),
-                      "rating": ratingController.text.trim(),
-                    };
-
-                    if (book == null) {
-                      await booksRef.add(data);
-                    } else {
-                      await booksRef.doc(book.id).update(data);
-                    }
-
-                    if (context.mounted) Navigator.pop(context);
                   },
                 ),
               ],
@@ -187,9 +213,32 @@ class _BookScreenState extends State<BookScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.blue[400],
-        title: const Text("Quản lý sách (Cloudinary)",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "📘 Quản lý sách (Cloudinary)",
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() => searchKeyword = value.toLowerCase());
+              },
+              decoration: InputDecoration(
+                hintText: "🔍 Tìm sách theo tên, tác giả hoặc thẻ...",
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: booksRef.snapshots(),
@@ -202,7 +251,24 @@ class _BookScreenState extends State<BookScreen> {
             return const Center(child: Text("Chưa có sách nào trong thư viện."));
           }
 
-          final books = snapshot.data!.docs;
+          final books = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final title = (data['title'] ?? '').toString().toLowerCase();
+            final author = (data['author'] ?? '').toString().toLowerCase();
+            final tag = (data['tag'] ?? '').toString().toLowerCase();
+
+            // Nếu không có từ khóa thì hiển thị tất cả
+            if (searchKeyword.isEmpty) return true;
+
+            // Tìm kiếm theo tiêu đề, tác giả hoặc thẻ
+            return title.contains(searchKeyword) ||
+                author.contains(searchKeyword) ||
+                tag.contains(searchKeyword);
+          }).toList();
+
+          if (books.isEmpty) {
+            return const Center(child: Text("Không tìm thấy sách nào phù hợp."));
+          }
 
           return ListView.builder(
             itemCount: books.length,
@@ -214,6 +280,7 @@ class _BookScreenState extends State<BookScreen> {
               final author = data['author'] ?? 'Không rõ';
               final image = data['image'] ?? '';
               final tag = data['tag'] ?? '';
+              final quantity = data['quantity'] ?? 0;
 
               ImageProvider imageProvider;
               if (image.startsWith('http')) {
@@ -237,9 +304,19 @@ class _BookScreenState extends State<BookScreen> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                  title: Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.w500)),
-                  subtitle: Text("Tác giả: $author"),
+                  title: Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Tác giả: $author"),
+                      Text("Số lượng: $quantity"),
+                      if (tag.isNotEmpty)
+                        Text("Thẻ: $tag", style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

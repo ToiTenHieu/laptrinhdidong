@@ -181,7 +181,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Trang chủ"),
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: "Sách"),
-          BottomNavigationBarItem(icon: Icon(Icons.article), label: "Báo cáo"),
+          BottomNavigationBarItem(icon: Icon(Icons.article), label: "Phiếu mượn"),
           BottomNavigationBarItem(icon: Icon(Icons.people), label: "Độc giả"),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Cài đặt"),
         ],

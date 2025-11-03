@@ -11,7 +11,9 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final user = FirebaseAuth.instance.currentUser;
+  final TextEditingController _addressController = TextEditingController();
 
+  /// Tính tổng tiền giỏ hàng
   double calculateTotal(QuerySnapshot snapshot) {
     double total = 0;
     for (var doc in snapshot.docs) {
@@ -24,6 +26,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // 🔹 Load địa chỉ hiện tại của user nếu có
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .get()
+          .then((doc) {
+        if (doc.exists && doc.data()?['address'] != null) {
+          _addressController.text = doc.data()!['address'];
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (user == null) {
       return Scaffold(
@@ -33,7 +52,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           foregroundColor: Colors.black87,
           centerTitle: true,
         ),
-        body: const Center(child: Text("Vui lòng đăng nhập để xem giỏ hàng.")),
+        body: const Center(
+          child: Text("Vui lòng đăng nhập để xem giỏ hàng."),
+        ),
       );
     }
 
@@ -74,6 +95,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           return Column(
             children: [
+              // Danh sách sản phẩm trong giỏ
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -94,9 +116,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     } else if (image.contains('assets/')) {
                       imageProvider = AssetImage(image);
                     } else {
-                      imageProvider = const AssetImage(
-                        'assets/images/default_book.jpg',
-                      );
+                      imageProvider =
+                          const AssetImage('assets/images/default_book.jpg');
                     }
 
                     return Container(
@@ -206,12 +227,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
 
-              // 🧾 Tổng tiền + nút thanh toán
+              // Nhập địa chỉ + Tổng tiền + Thanh toán
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(top: BorderSide(color: Colors.black12)),
@@ -219,6 +238,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Nhập địa chỉ
+                    TextField(
+                      controller: _addressController,
+                      decoration: const InputDecoration(
+                        labelText: "🏠 Nhập địa chỉ nhận hàng",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
                     const Text(
                       "💵 Đặt hàng và thanh toán khi nhận hàng",
                       textAlign: TextAlign.center,
@@ -242,14 +271,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () async {
+                            final address = _addressController.text.trim();
+                            if (address.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      "❌ Vui lòng nhập địa chỉ trước khi đặt hàng."),
+                                ),
+                              );
+                              return;
+                            }
+
                             final cartSnapshot = await cartRef.get();
                             if (cartSnapshot.docs.isEmpty) return;
 
                             final total = calculateTotal(cartSnapshot);
 
-                            // 🔥 Lưu đơn hàng vào Firestore
+                            // 🔹 Lưu địa chỉ vào document user
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user!.uid)
+                                .set({'address': address}, SetOptions(merge: true));
+
+                            // Lưu đơn hàng vào Firestore
                             final orderData = {
                               'userId': user!.uid,
+                              'userAddress': address,
                               'items': cartSnapshot.docs.map((doc) {
                                 final data = doc.data() as Map<String, dynamic>;
                                 return {
@@ -264,12 +311,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               'status': 'pending',
                               'createdAt': FieldValue.serverTimestamp(),
                             };
-
                             await FirebaseFirestore.instance
                                 .collection('orders')
                                 .add(orderData);
 
-                            // ✅ Xóa giỏ hàng
+                            // Xóa giỏ hàng
                             final batch = FirebaseFirestore.instance.batch();
                             for (var d in cartSnapshot.docs) {
                               batch.delete(d.reference);
@@ -279,10 +325,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("Đặt hàng thành công! Thanh toán khi nhận hàng."),
+                                  content: Text(
+                                      "Đặt hàng thành công! Thanh toán khi nhận hàng."),
                                   duration: Duration(seconds: 2),
                                 ),
                               );
+                              _addressController.clear();
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -310,5 +358,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    super.dispose();
   }
 }

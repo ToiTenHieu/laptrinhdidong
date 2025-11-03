@@ -20,7 +20,7 @@ class _OnlineLibraryScreenState extends State<OnlineLibraryScreen> {
       backgroundColor: const Color(0xFFF6F8FB),
       appBar: AppBar(
         title: const Text(
-          "Thư viện trực tuyến",
+          "Mua sách online",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,

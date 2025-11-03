@@ -17,6 +17,7 @@ import 'online_library_screen.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
 import 'history_order_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -152,13 +153,13 @@ class _HomeScreenState extends State<HomeScreen>
                 },
               ),
 
-                _buildDrawerItem(
-                  Icons.history,
-                  "Lịch sử đơn hàng",
-                  onTap: () {
-                    _navigateTo(context, const HistoryOrder());
-                  },
-                ),
+              _buildDrawerItem(
+                Icons.history,
+                "Lịch sử đơn hàng",
+                onTap: () {
+                  _navigateTo(context, const HistoryOrder());
+                },
+              ),
 
               _buildDrawerItem(
                 Icons.help_outline,
@@ -191,7 +192,6 @@ class _HomeScreenState extends State<HomeScreen>
 
               const Spacer(),
               const Divider(),
-              
             ],
           ),
         ),
@@ -280,48 +280,45 @@ class _HomeScreenState extends State<HomeScreen>
             const SizedBox(height: 16),
 
             // 🔍 Thanh tìm kiếm
-
-            Container(
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: TextField(
-                controller: _searchCtrl,
-                decoration: InputDecoration(
-                  hintText: "Tìm kiếm sách, tác giả, ...",
-                  prefixIcon: IconButton(
-                    icon: const Icon(Icons.search, color: Colors.grey),
-                    onPressed: () {
-                      final query = _searchCtrl.text.trim();
-                      if (query.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SearchScreen(query: query),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SearchScreen(query: value.trim()),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-
-
+            // Container(
+            //   height: 44,
+            //   decoration: BoxDecoration(
+            //     color: Colors.white,
+            //     borderRadius: BorderRadius.circular(30),
+            //   ),
+            //   child: TextField(
+            //     controller: _searchCtrl,
+            //     decoration: InputDecoration(
+            //       hintText: "Tìm kiếm sách, tác giả, ...",
+            //       prefixIcon: IconButton(
+            //         icon: const Icon(Icons.search, color: Colors.grey),
+            //         onPressed: () {
+            //           final query = _searchCtrl.text.trim();
+            //           if (query.isNotEmpty) {
+            //             Navigator.push(
+            //               context,
+            //               MaterialPageRoute(
+            //                 builder: (context) => SearchScreen(query: query),
+            //               ),
+            //             );
+            //           }
+            //         },
+            //       ),
+            //       border: InputBorder.none,
+            //       contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            //     ),
+            //     onSubmitted: (value) {
+            //       if (value.trim().isNotEmpty) {
+            //         Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) => SearchScreen(query: value.trim()),
+            //           ),
+            //         );
+            //       }
+            //     },
+            //   ),
+            // ),
 
             const SizedBox(height: 16),
 

@@ -58,9 +58,11 @@ class HistoryOrder extends StatelessWidget {
 
                     final status = order['status'] ?? 'Không rõ';
                     final total = order['total'] ?? 0;
-                    final createdAt = (order['createdAt'] as Timestamp).toDate();
+                    final createdAt =
+                        (order['createdAt'] as Timestamp).toDate();
                     final items =
                         List<Map<String, dynamic>>.from(order['items'] ?? []);
+                    final address = order['userAddress'] ?? 'Chưa có địa chỉ';
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -103,6 +105,14 @@ class HistoryOrder extends StatelessWidget {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 color: Colors.blueAccent,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "🏠 Địa chỉ nhận hàng: $address",
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -153,7 +163,7 @@ class HistoryOrder extends StatelessWidget {
     );
   }
 
-  /// ✅ Hàm hiển thị ảnh (dùng trường `image`)
+  /// ✅ Hàm hiển thị ảnh (dùng field `image`)
   Widget _buildImage(String imageUrl) {
     if (imageUrl.isEmpty) {
       return Container(
@@ -165,7 +175,6 @@ class HistoryOrder extends StatelessWidget {
       );
     }
 
-    // Nếu là link online (http hoặc https)
     if (imageUrl.startsWith('http')) {
       return Image.network(
         imageUrl,
@@ -193,7 +202,6 @@ class HistoryOrder extends StatelessWidget {
         },
       );
     } else {
-      // Nếu là đường dẫn asset local
       return Image.asset(
         imageUrl,
         width: 50,
