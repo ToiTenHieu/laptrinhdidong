@@ -1,11 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'book_screen.dart';
 import 'report_screen.dart';
 import 'reader_screen.dart';
 import 'settings_screen.dart';
 
-class AdminHomeScreen extends StatelessWidget {
+class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
+
+  @override
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
+}
+
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
+  int totalBorrows = 0;
+  int totalReturns = 0;
+  int totalUsers = 0;
+  int totalBooks = 0;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  /// 🔥 Lấy dữ liệu thống kê từ Firestore
+  Future<void> _loadDashboardData() async {
+    try {
+      final borrowSnap = await FirebaseFirestore.instance
+          .collection('borrowed_books')
+          .where('status', isEqualTo: 'đang mượn')
+          .get();
+
+      final returnSnap = await FirebaseFirestore.instance
+          .collection('borrowed_books')
+          .where('status', isEqualTo: 'đã trả')
+          .get();
+
+      final userSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'user')
+          .get();
+
+      final bookSnap =
+          await FirebaseFirestore.instance.collection('books').get();
+
+      setState(() {
+        totalBorrows = borrowSnap.size;
+        totalReturns = returnSnap.size;
+        totalUsers = userSnap.size;
+        totalBooks = bookSnap.size;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('🔥 Lỗi khi tải thống kê: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi tải dữ liệu: $e')),
+      );
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,107 +70,81 @@ class AdminHomeScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.blue[700],
         toolbarHeight: 70,
-        title: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () {},
-            ),
-            Expanded(
-              child: Container(
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const TextField(
-                  decoration: InputDecoration(
-                    hintText: "Tìm kiếm",
-                    prefixIcon: Icon(Icons.search, color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Icon(Icons.notifications_none, color: Colors.white, size: 28),
-            const SizedBox(width: 10),
-            const Icon(Icons.account_circle, color: Colors.white, size: 30),
-          ],
+        title: const Text(
+          "📊 Trang quản trị",
+          style: TextStyle(color: Colors.white, fontSize: 20),
         ),
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Thống kê
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard("Lượt mượn sách", "0"),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadDashboardData,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ====================== Thống kê ======================
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            "Đang mượn",
+                            totalBorrows.toString(),
+                            Icons.book_outlined,
+                            Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            "Đã trả",
+                            totalReturns.toString(),
+                            Icons.assignment_turned_in_outlined,
+                            Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            "Người dùng",
+                            totalUsers.toString(),
+                            Icons.people_outline,
+                            Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatCard(
+                            "Tổng sách",
+                            totalBooks.toString(),
+                            Icons.menu_book_outlined,
+                            Colors.purple,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ====================== Biểu đồ mượn trả ======================
+                    _buildChartSection(),
+
+                    const SizedBox(height: 30),
+
+                    // ====================== Lượt mượn gần đây ======================
+                    _buildRecentBorrowsSection(),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildStatCard("Lượt trả sách", "10"),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Danh mục yêu thích
-            const Text("Danh mục yêu thích",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: GridView.count(
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                shrinkWrap: true,
-                children: [
-                  _buildFavoriteItem(Icons.menu_book, "Sách"),
-                  _buildFavoriteItem(Icons.person, "Độc giả"),
-                  _buildFavoriteItem(Icons.article, "Báo cáo"),
-                  _buildFavoriteItem(Icons.add, "Chỉnh sửa"),
-                ],
               ),
             ),
 
-            const SizedBox(height: 20),
-
-            // Gần đây
-            const Text("Gần đây",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: GridView.count(
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                shrinkWrap: true,
-                children: [
-                  _buildFavoriteItem(Icons.menu_book, "Sách"),
-                  _buildFavoriteItem(Icons.person, "Độc giả"),
-                  _buildFavoriteItem(Icons.article, "Báo cáo"),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // Thanh điều hướng dưới
+      // ====================== Thanh điều hướng dưới ======================
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.blue[700],
         unselectedItemColor: Colors.grey,
@@ -122,12 +152,6 @@ class AdminHomeScreen extends StatelessWidget {
         currentIndex: 0,
         onTap: (index) {
           switch (index) {
-            case 0:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
-              );
-              break;
             case 1:
               Navigator.pushReplacement(
                 context,
@@ -165,33 +189,156 @@ class AdminHomeScreen extends StatelessWidget {
     );
   }
 
-  static Widget _buildStatCard(String title, String value) {
+  // ====================== Widget thống kê ======================
+  static Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.blue),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(14),
         color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+              color: Colors.grey.shade300,
+              blurRadius: 6,
+              offset: const Offset(0, 3))
+        ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 6),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
           Text(value,
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              style: TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
   }
 
-  static Widget _buildFavoriteItem(IconData icon, String title) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 36, color: Colors.black87),
-        const SizedBox(height: 6),
-        Text(title, style: const TextStyle(fontSize: 14)),
+  // ====================== Biểu đồ tròn ======================
+  Widget _buildChartSection() {
+    final total = totalBorrows + totalReturns;
+    if (total == 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _boxStyle(),
+        child: const Center(
+            child: Text("Chưa có dữ liệu mượn/trả sách.",
+                style: TextStyle(color: Colors.grey))),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _boxStyle(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("📈 Tỷ lệ mượn / trả",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 3,
+                centerSpaceRadius: 50,
+                sections: [
+                  PieChartSectionData(
+                    color: Colors.orange,
+                    value: totalBorrows.toDouble(),
+                    title: "Mượn",
+                    radius: 60,
+                    titleStyle: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  PieChartSectionData(
+                    color: Colors.green,
+                    value: totalReturns.toDouble(),
+                    title: "Trả",
+                    radius: 60,
+                    titleStyle: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ====================== Lượt mượn gần đây ======================
+  Widget _buildRecentBorrowsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _boxStyle(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("🕓 Lượt mượn gần đây",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('borrowed_books')
+                .orderBy('borrow_date', descending: true)
+                .limit(5)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final docs = snapshot.data!.docs;
+              if (docs.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text("Chưa có lượt mượn nào.",
+                      style: TextStyle(color: Colors.grey)),
+                );
+              }
+
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(
+                        data['book_image'] ?? '',
+                        width: 45,
+                        height: 60,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    title: Text(data['book_title'] ?? 'Không rõ'),
+                    subtitle: Text("Trạng thái: ${data['status'] ?? ''}"),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _boxStyle() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+            color: Colors.grey.shade300, blurRadius: 6, offset: const Offset(0, 3))
       ],
     );
   }

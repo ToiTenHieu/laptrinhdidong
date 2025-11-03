@@ -117,7 +117,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         padding: const EdgeInsets.all(10),
                         child: Row(
                           children: [
-                            // Ảnh
+                            // Ảnh sách
                             Container(
                               width: 55,
                               height: 75,
@@ -206,7 +206,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
 
-              // Tổng tiền + nút thanh toán
               // 🧾 Tổng tiền + nút thanh toán
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -220,7 +219,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // 📝 Dòng chữ hướng dẫn thanh toán
                     const Text(
                       "💵 Đặt hàng và thanh toán khi nhận hàng",
                       textAlign: TextAlign.center,
@@ -232,7 +230,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // 💰 Tổng tiền + nút thanh toán
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -245,22 +242,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () async {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Đặt hàng thành công! Thanh toán khi nhận hàng.",
-                                ),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
+                            final cartSnapshot = await cartRef.get();
+                            if (cartSnapshot.docs.isEmpty) return;
 
-                            // 🔥 Xóa giỏ hàng sau khi đặt hàng
+                            final total = calculateTotal(cartSnapshot);
+
+                            // 🔥 Lưu đơn hàng vào Firestore
+                            final orderData = {
+                              'userId': user!.uid,
+                              'items': cartSnapshot.docs.map((doc) {
+                                final data = doc.data() as Map<String, dynamic>;
+                                return {
+                                  'title': data['title'],
+                                  'author': data['author'],
+                                  'price': data['price'],
+                                  'quantity': data['quantity'],
+                                  'image': data['image'],
+                                };
+                              }).toList(),
+                              'total': total,
+                              'status': 'pending',
+                              'createdAt': FieldValue.serverTimestamp(),
+                            };
+
+                            await FirebaseFirestore.instance
+                                .collection('orders')
+                                .add(orderData);
+
+                            // ✅ Xóa giỏ hàng
                             final batch = FirebaseFirestore.instance.batch();
-                            final cartDocs = await cartRef.get();
-                            for (var d in cartDocs.docs) {
+                            for (var d in cartSnapshot.docs) {
                               batch.delete(d.reference);
                             }
                             await batch.commit();
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Đặt hàng thành công! Thanh toán khi nhận hàng."),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,

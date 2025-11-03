@@ -32,7 +32,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     _checkFavoriteStatus();
   }
 
-  /// ✅ Kiểm tra sách đã được yêu thích chưa
   Future<void> _checkFavoriteStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -61,8 +60,8 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       appBar: AppBar(
-        title: const Text("Chi tiết sách",
-            style: TextStyle(color: Colors.black87)),
+        title:
+            const Text("Chi tiết sách", style: TextStyle(color: Colors.black87)),
         backgroundColor: Colors.white,
         elevation: 0.5,
         iconTheme: const IconThemeData(color: Colors.black87),
@@ -72,7 +71,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// ✅ Thông tin sách + nút yêu thích
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -86,8 +84,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 15),
-
-                /// Thông tin
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,8 +101,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                     ],
                   ),
                 ),
-
-                /// 🔹 Nút yêu thích ở bên phải ảnh
                 IconButton(
                   onPressed: _toggleFavorite,
                   icon: Icon(
@@ -117,10 +111,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 25),
-
-            /// ✅ Mô tả
             const Text("Mô tả",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
@@ -128,10 +119,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               widget.description ?? "Chưa có mô tả cho quyển sách này!",
               style: const TextStyle(color: Colors.black54),
             ),
-
             const SizedBox(height: 25),
-
-            /// ✅ Nút hành động
             Row(
               children: [
                 Expanded(
@@ -168,7 +156,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
             _reviewList(),
           ],
@@ -177,7 +164,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  /// ✅ Thêm / Xóa khỏi yêu thích
+  /// ❤️ Thêm / xóa yêu thích
   Future<void> _toggleFavorite() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -207,7 +194,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     }
   }
 
-  /// ✅ Lưu thông tin mượn
+  /// ✅ Mượn sách (1 người chỉ được mượn 1 bản của cùng sách)
   Future<void> _borrow(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -215,13 +202,48 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       return;
     }
 
-    await FirebaseFirestore.instance.collection("borrowed_books").add({
+    final borrowedBooks = FirebaseFirestore.instance.collection("borrowed_books");
+    final userId = user.uid;
+
+    // 🔹 1. Kiểm tra xem user đã mượn quyển này mà chưa trả chưa
+    final existingBorrow = await borrowedBooks
+        .where("user_id", isEqualTo: userId)
+        .where("book_title", isEqualTo: widget.title)
+        .where("status", whereIn: ["đang mượn", "pending"])
+        .get();
+
+    if (existingBorrow.docs.isNotEmpty) {
+      _snack("❌ Bạn đã mượn quyển này rồi, vui lòng trả trước khi mượn lại!");
+      return;
+    }
+
+    // 🔹 2. Kiểm tra số lượng sách còn không
+    final booksRef = FirebaseFirestore.instance.collection("books");
+    final bookSnapshot = await booksRef.where("title", isEqualTo: widget.title).limit(1).get();
+
+    if (bookSnapshot.docs.isEmpty) {
+      _snack("Không tìm thấy thông tin sách trong hệ thống!");
+      return;
+    }
+
+    final bookDoc = bookSnapshot.docs.first;
+    final currentQuantity = (bookDoc["quantity"] ?? 0) as int;
+
+    if (currentQuantity <= 0) {
+      _snack("📚 Sách đã hết, không thể mượn!");
+      return;
+    }
+
+    // 🔹 3. Giảm số lượng sách đi 1
+    await booksRef.doc(bookDoc.id).update({"quantity": currentQuantity - 1});
+
+    // 🔹 4. Tạo phiếu mượn mới
+    await borrowedBooks.add({
       "book_title": widget.title,
       "book_author": widget.author,
       "book_image": widget.imagePath,
       "borrow_date": Timestamp.now(),
-      "due_date":
-          Timestamp.fromDate(DateTime.now().add(const Duration(days: 7))),
+      "due_date": Timestamp.fromDate(DateTime.now().add(const Duration(days: 7))),
       "status": "đang mượn",
       "user_id": user.uid,
     });
@@ -229,7 +251,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     _snack("✅ Mượn thành công!");
   }
 
-  /// ✅ Danh sách đánh giá
+  /// 📋 Danh sách đánh giá
   Widget _reviewList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -239,12 +261,10 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const LinearProgressIndicator();
-
         final reviews = snapshot.data!.docs;
         if (reviews.isEmpty) {
           return const Text("📭 Chưa có đánh giá nào");
         }
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: reviews.map((doc) {
@@ -349,7 +369,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     }
 
     final user = FirebaseAuth.instance.currentUser;
-
     await FirebaseFirestore.instance.collection("reviews").add({
       "book_title": widget.title,
       "rating": rating,

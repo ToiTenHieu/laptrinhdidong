@@ -16,7 +16,7 @@ import 'login_screen.dart';
 import 'online_library_screen.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
-
+import 'history_order_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen>
 
               _buildDrawerItem(
                 Icons.desktop_mac_outlined,
-                "Thư viện trực tuyến",
+                "Mua sách online",
                 onTap: () {
                   _navigateTo(context, const OnlineLibraryScreen());
                 },
@@ -152,13 +152,13 @@ class _HomeScreenState extends State<HomeScreen>
                 },
               ),
 
-              _buildDrawerItem(
-                Icons.settings_outlined,
-                "Cài đặt",
-                onTap: () {
-                  _navigateTo(context, const SettingsScreen());
-                },
-              ),
+                _buildDrawerItem(
+                  Icons.history,
+                  "Lịch sử đơn hàng",
+                  onTap: () {
+                    _navigateTo(context, const HistoryOrder());
+                  },
+                ),
 
               _buildDrawerItem(
                 Icons.help_outline,
