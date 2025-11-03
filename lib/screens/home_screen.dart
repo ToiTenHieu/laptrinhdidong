@@ -15,6 +15,7 @@ import 'book_club_screen.dart';
 import 'login_screen.dart';
 import 'online_library_screen.dart';
 import 'settings_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -278,21 +280,48 @@ class _HomeScreenState extends State<HomeScreen>
             const SizedBox(height: 16),
 
             // 🔍 Thanh tìm kiếm
+
             Container(
               height: 44,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(30),
               ),
-              child: const TextField(
+              child: TextField(
+                controller: _searchCtrl,
                 decoration: InputDecoration(
                   hintText: "Tìm kiếm sách, tác giả, ...",
-                  prefixIcon: Icon(Icons.search, color: Colors.grey),
+                  prefixIcon: IconButton(
+                    icon: const Icon(Icons.search, color: Colors.grey),
+                    onPressed: () {
+                      final query = _searchCtrl.text.trim();
+                      if (query.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SearchScreen(query: query),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 ),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SearchScreen(query: value.trim()),
+                      ),
+                    );
+                  }
+                },
               ),
             ),
+
+
 
             const SizedBox(height: 16),
 

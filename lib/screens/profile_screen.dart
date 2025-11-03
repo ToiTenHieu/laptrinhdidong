@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
+import 'security_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -47,6 +50,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text("Thông tin cá nhân"),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: "Sửa thông tin",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditProfileScreen(userData: userData!),
+                ),
+              ).then((_) => fetchUserData()); // Load lại dữ liệu sau khi sửa
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -79,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Vai trò: ${userData!['role'] ?? 'N/A'}",
+                    "Vai trò: Đọc giả",
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],
@@ -112,8 +129,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                actionButton("Đổi mật khẩu", Icons.lock),
-                actionButton("Cài đặt bảo mật", Icons.security),
+                actionButton("Đổi mật khẩu", Icons.lock, onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChangePasswordScreen(),
+                    ),
+                  );
+                }),
+                actionButton("Cài đặt bảo mật", Icons.security, onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SecuritySettingsScreen(),
+                    ),
+                  );
+                }),
               ],
             ),
           ],
@@ -121,6 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
 
   Widget infoRow(IconData icon, String title, String value) {
     return ListTile(
@@ -130,7 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget actionButton(String title, IconData icon) {
+  Widget actionButton(String title, IconData icon, {required VoidCallback onTap}) {
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
@@ -139,11 +171,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
       ),
-      onPressed: () {},
+      onPressed: onTap, // ✅ gọi hàm callback được truyền vào
       icon: Icon(icon),
       label: Text(title),
     );
   }
+
 
   String formatDate(dynamic createdAt) {
     if (createdAt == null) return 'N/A';

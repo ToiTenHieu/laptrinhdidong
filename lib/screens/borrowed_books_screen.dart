@@ -221,8 +221,11 @@ class _BookItem extends StatelessWidget {
             children: [
               Text(book.author, style: const TextStyle(color: Colors.black54, fontSize: 13)),
               const SizedBox(height: 4),
-              Text('Mượn: $borrowDateStr   Trả: $returnDateStr',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                'Mượn: $borrowDateStr\nTrả: $returnDateStr',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              )
+
             ],
           ),
         ),
