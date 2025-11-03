@@ -13,7 +13,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isLoading = false;
 
   Future<void> _resetPassword() async {
-    if (_emailController.text.trim().isEmpty) {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Vui lòng nhập email.")),
       );
@@ -21,24 +23,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     setState(() => _isLoading = true);
+
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: _emailController.text.trim(),
-      );
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("📧 Email khôi phục mật khẩu đã được gửi!")),
+        SnackBar(
+          content: Text("📧 Liên kết đặt lại mật khẩu đã được gửi đến $email"),
+          action: SnackBarAction(
+            label: "Mở email",
+            onPressed: () {
+              // Không mở email trực tiếp, chỉ nhắc user kiểm tra
+            },
+          ),
+        ),
       );
-      Navigator.pop(context); // Quay lại trang đăng nhập
+
+      // Có thể để lại màn hình quên mật khẩu hoặc quay về Login
+      Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
-      String msg = "Gửi email thất bại.";
-      if (e.code == 'user-not-found') {
-        msg = "Không tìm thấy tài khoản với email này.";
+      String msg;
+      switch (e.code) {
+        case 'user-not-found':
+          msg = "Không tìm thấy tài khoản với email này.";
+          break;
+        case 'invalid-email':
+          msg = "Email không hợp lệ.";
+          break;
+        default:
+          msg = "Gửi email thất bại: ${e.message}";
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       setState(() => _isLoading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

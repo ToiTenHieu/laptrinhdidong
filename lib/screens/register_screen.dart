@@ -35,23 +35,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
 
+      final user = userCredential.user;
+      if (user == null) throw Exception("Không tạo được người dùng");
+
+      // 🔹 Gửi email xác nhận
+      await user.sendEmailVerification();
+
       // 💾 Lưu thông tin người dùng vào Firestore
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(userCredential.user!.uid)
+          .doc(user.uid)
           .set({
         'name': _nameController.text.trim(),
         'email': email,
         'phone': _phoneController.text.trim(),
-        'role': 'user', // 👈 gán quyền mặc định là user
+        'role': 'user', // gán quyền mặc định
         'created_at': DateTime.now(),
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Tạo tài khoản thành công!")),
+        const SnackBar(
+            content: Text(
+                "✅ Tạo tài khoản thành công! Vui lòng kiểm tra email để xác nhận.")),
       );
 
-      Navigator.pop(context);
+      Navigator.pop(context); // quay về login
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text("Lỗi: ${e.message}")));
@@ -59,6 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _isLoading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

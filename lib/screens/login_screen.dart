@@ -33,13 +33,35 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
-              email: _emailController.text.trim(),
-              password: _passwordController.text.trim());
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim());
       final user = userCredential.user;
       if (user == null) throw Exception("Không tìm thấy người dùng");
 
+      // 🔹 Kiểm tra email đã xác nhận
+      await user.reload(); // cập nhật trạng thái emailVerified
+      if (!user.emailVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+                "Vui lòng xác nhận email trước khi đăng nhập."),
+            action: SnackBarAction(
+              label: "Gửi lại email",
+              onPressed: () async {
+                await user.sendEmailVerification();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Đã gửi lại email xác nhận!")),
+                );
+              },
+            ),
+          ),
+        );
+        return; // dừng đăng nhập
+      }
+
+      // 🔹 Kiểm tra role trong Firestore
       final doc =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (!doc.exists) throw Exception("Không tìm thấy quyền trong Firestore");
 
       final role = doc['role']?.toString() ?? 'user';
@@ -73,6 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
