@@ -17,6 +17,7 @@ import 'online_library_screen.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
 import 'history_order_screen.dart';
+import 'borrowed_books_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -118,14 +119,6 @@ class _HomeScreenState extends State<HomeScreen>
                 "Danh sách mượn",
                 onTap: () {
                   _navigateTo(context, const BorrowedBooksScreen());
-                },
-              ),
-
-              _buildDrawerItem(
-                Icons.bookmark_border,
-                "Danh sách mong muốn",
-                onTap: () {
-                  _navigateTo(context, const WishlistScreen());
                 },
               ),
 
@@ -344,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen>
                     future: getCurrentlyBorrowing(),
                     builder: (context, snapshot) {
                       return _buildStatCard(
-                        "Sách đang mượn",
+                        "đang mượnSách ",
                         (snapshot.data ?? 0).toString(),
                         Colors.deepOrange,
                         Icons.access_time,
@@ -404,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen>
                   indicatorColor: Colors.blueAccent,
                   tabs: const [
                     Tab(text: "Khám phá"),
-                    Tab(text: "Đang mượn"),
+                    Tab(text: "Sách Hot"),
                     Tab(text: "Yêu thích"),
                   ],
                 ),
@@ -591,94 +584,6 @@ class _HomeScreenState extends State<HomeScreen>
                 )
               : null),
       onTap: onTap,
-    );
-  }
-}
-
-class BorrowedBooksTab extends StatelessWidget {
-  const BorrowedBooksTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      return const Center(
-        child: Text("Vui lòng đăng nhập để xem sách đang mượn."),
-      );
-    }
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('borrowed_books')
-          .where('user_id', isEqualTo: user.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("📭 Bạn chưa mượn quyển sách nào."));
-        }
-
-        final books = snapshot.data!.docs;
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: books.length,
-          itemBuilder: (context, index) {
-            final book = books[index];
-            final title = book['book_title'];
-            final author = book['book_author'];
-            final image = book['book_image'];
-            final status = book['status'];
-            final borrowDate = (book['borrow_date'] as Timestamp).toDate();
-            final dueDate = (book['due_date'] as Timestamp).toDate();
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 2,
-              child: ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: image.startsWith('http')
-                      ? Image.network(
-                          image,
-                          width: 50,
-                          height: 70,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.asset(
-                          image,
-                          width: 50,
-                          height: 70,
-                          fit: BoxFit.cover,
-                        ),
-                ),
-                title: Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(
-                  "Tác giả: $author\n"
-                  "Hạn trả: ${DateFormat('dd/MM/yyyy').format(dueDate)}",
-                ),
-                trailing: Text(
-                  status,
-                  style: TextStyle(
-                    color: status == 'đang mượn' ? Colors.orange : Colors.green,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

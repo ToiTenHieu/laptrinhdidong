@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'notification_service.dart';
 
 class BorrowedBooksScreen extends StatefulWidget {
   const BorrowedBooksScreen({super.key});
@@ -91,28 +89,39 @@ class _BorrowedBooksScreenState extends State<BorrowedBooksScreen> {
             const SizedBox(height: 16),
 
             // --- Danh sách sách từ Firestore ---
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: borrowedBooksStream,
-              builder: (context, snapshot) {
-                // ... (code check snapshot giữ nguyên)
-
-                // Chuyển dữ liệu Firestore -> Model
-                final books = snapshot.data!.docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  // ⭐️ SỬA: Truyền doc.id vào fromMap
-                  return BookModel.fromMap(doc.id, data);
-                }).where((book) {
-                  // ... (code lọc giữ nguyên)
-                  if (selectedFilter == 'Tất cả') return true;
-                  if (selectedFilter == 'Quá hạn') {
-                    return book.dueDate.isBefore(DateTime.now()) &&
-                        book.status.toLowerCase() != 'đã trả';
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: borrowedBooksStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
                   }
-                  return book.status.toLowerCase() ==
-                      selectedFilter.toLowerCase();
-                }).toList();
-                
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Lỗi tải dữ liệu: ${snapshot.error}'),
+                    );
+                  }
+
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) {
+                    return const Center(child: Text('Không có sách nào.'));
+                  }
+
+                  final books = docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>? ?? {};
+                    return BookModel.fromMap(doc.id, data);
+                  }).where((book) {
+                    // --- Bộ lọc dữ liệu ---
+                    if (selectedFilter == 'Tất cả') return true;
+                    if (selectedFilter == 'Quá hạn') {
+                      return book.dueDate.isBefore(DateTime.now()) &&
+                          book.status.toLowerCase() != 'đã trả';
+                    }
+                    return book.status.toLowerCase() ==
+                        selectedFilter.toLowerCase();
+                  }).toList();
+
                   if (books.isEmpty) {
                     return const Center(child: Text('Không có sách phù hợp.'));
                   }
@@ -120,8 +129,7 @@ class _BorrowedBooksScreenState extends State<BorrowedBooksScreen> {
                   return ListView.builder(
                     itemCount: books.length,
                     itemBuilder: (context, index) {
-                      final book = books[index];
-                      return _BookItem(book: book);
+                      return _BookItem(book: books[index]);
                     },
                   );
                 },
@@ -135,10 +143,9 @@ class _BorrowedBooksScreenState extends State<BorrowedBooksScreen> {
 }
 
 // ======== MODEL ========
-// ======== MODEL ========
 class BookModel {
-  final String id; // ⭐️ MỚI: ID của document mượn sách
-  final String bookId; // ⭐️ MỚI: ID của sách gốc
+  final String id;
+  final String bookId;
   final String title;
   final String author;
   final String image;
@@ -148,8 +155,8 @@ class BookModel {
   final String? description;
 
   BookModel({
-    required this.id, // ⭐️ MỚI
-    required this.bookId, // ⭐️ MỚI
+    required this.id,
+    required this.bookId,
     required this.title,
     required this.author,
     required this.image,
@@ -159,17 +166,17 @@ class BookModel {
     this.description,
   });
 
-  factory BookModel.fromMap(String docId, Map<String, dynamic> data) { // ⭐️ THÊM `docId`
+  factory BookModel.fromMap(String docId, Map<String, dynamic> data) {
     return BookModel(
-      id: docId, // ⭐️ MỚI
-      bookId: data['book_id'] ?? '', // ⭐️ MỚI (Giả sử bạn lưu book_id trong doc)
-      title: data['book_title'] ?? 'Không có tiêu đề',
-      author: data['book_author'] ?? 'Không rõ tác giả',
-      image: data['book_image'] ?? '',
-      status: data['status'] ?? 'đang mượn',
+      id: docId,
+      bookId: data['book_id']?.toString() ?? '',
+      title: data['book_title']?.toString() ?? 'Không có tiêu đề',
+      author: data['book_author']?.toString() ?? 'Không rõ tác giả',
+      image: data['book_image']?.toString() ?? '',
+      status: data['status']?.toString() ?? 'đang mượn',
       borrowDate: (data['borrow_date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       dueDate: (data['due_date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      description: data['book_description'] ?? '',
+      description: data['book_description']?.toString(),
     );
   }
 }
@@ -211,9 +218,15 @@ class _BookItem extends StatelessWidget {
         contentPadding: const EdgeInsets.all(10),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(6),
-          child: book.image.startsWith('http')
-              ? Image.network(book.image, width: 48, height: 70, fit: BoxFit.cover)
-              : Image.asset(book.image, width: 48, height: 70, fit: BoxFit.cover),
+          child: book.image.isNotEmpty
+              ? Image.network(
+                  book.image,
+                  width: 48,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.book, size: 48),
+                )
+              : const Icon(Icons.book, size: 48, color: Colors.grey),
         ),
         title: Text(
           book.title,
@@ -229,8 +242,7 @@ class _BookItem extends StatelessWidget {
               Text(
                 'Mượn: $borrowDateStr\nTrả: $returnDateStr',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
-              )
-
+              ),
             ],
           ),
         ),

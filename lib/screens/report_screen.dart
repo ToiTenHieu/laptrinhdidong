@@ -18,7 +18,6 @@ class _ReportScreenState extends State<ReportScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    print("✅ ReportScreen initState() được gọi");
   }
 
   @override
@@ -31,27 +30,58 @@ class _ReportScreenState extends State<ReportScreen>
     return "${date.day}/${date.month}/${date.year}";
   }
 
+  // ✅ Hàm hiển thị thông báo
+  void _snack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  /// ✅ Xác nhận trả sách → cập nhật trạng thái + tăng 1 quyển trong Firestore
   Future<void> _confirmReturn(String docId) async {
     try {
-      print("🟡 Đang cập nhật trạng thái phiếu $docId → 'đã trả'");
-      await _firestore.collection('borrowed_books').doc(docId).update({
-        'status': 'đã trả',
+      // 🔹 Lấy thông tin phiếu mượn
+      final borrowDoc =
+          await _firestore.collection("borrowed_books").doc(docId).get();
+
+      if (!borrowDoc.exists) {
+        return _snack("❌ Không tìm thấy phiếu mượn!");
+      }
+
+      final borrowData = borrowDoc.data()!;
+      final bookTitle = borrowData["book_title"];
+
+      // 🔹 Tìm sách theo title trong collection "books"
+      final booksRef = _firestore.collection("books");
+      final bookSnap =
+          await booksRef.where("title", isEqualTo: bookTitle).limit(1).get();
+
+      if (bookSnap.docs.isEmpty) {
+        return _snack("❌ Không tìm thấy thông tin sách trong thư viện!");
+      }
+
+      final bookDoc = bookSnap.docs.first;
+      final currentQuantity = (bookDoc["quantity"] ?? 0) as int;
+
+      // 🔹 Tăng lại 1 quyển sách
+      await booksRef.doc(bookDoc.id).update({
+        "quantity": currentQuantity + 1,
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Đã xác nhận trả sách")),
-        );
-      }
+
+      // 🔹 Cập nhật trạng thái phiếu mượn thành "đã trả"
+      await _firestore.collection("borrowed_books").doc(docId).update({
+        "status": "đã trả",
+        "return_date": Timestamp.now(),
+      });
+
+      _snack("✅ Đã xác nhận trả sách và cập nhật số lượng!");
     } catch (e) {
-      debugPrint("❌ Lỗi khi cập nhật trạng thái: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Lỗi khi cập nhật: $e")),
-        );
-      }
+      debugPrint("❌ Lỗi khi xác nhận trả: $e");
+      _snack("❌ Lỗi khi cập nhật: $e");
     }
   }
 
+  // 🔹 Stream danh sách phiếu theo trạng thái
   Stream<QuerySnapshot> _getBorrowStream(String status) {
     return _firestore
         .collection('borrowed_books')
@@ -60,6 +90,7 @@ class _ReportScreenState extends State<ReportScreen>
         .snapshots();
   }
 
+  // 🔹 Widget danh sách phiếu mượn
   Widget _buildBorrowList(Stream<QuerySnapshot> stream, bool isOngoing) {
     return StreamBuilder<QuerySnapshot>(
       stream: stream,
@@ -76,8 +107,6 @@ class _ReportScreenState extends State<ReportScreen>
         }
 
         final docs = snapshot.data?.docs ?? [];
-        print("📦 Nhận ${docs.length} phiếu (status=${isOngoing ? 'đang mượn' : 'đã trả'})");
-
         if (docs.isEmpty) {
           return Center(
             child: Text(
@@ -107,7 +136,7 @@ class _ReportScreenState extends State<ReportScreen>
               dueDate = (data['due_date'] as Timestamp?)?.toDate();
             } catch (_) {}
 
-            // 🔹 FutureBuilder để lấy tên người mượn từ users collection
+            // 🔹 Lấy tên người mượn
             return FutureBuilder<DocumentSnapshot>(
               future: _firestore.collection('users').doc(userId).get(),
               builder: (context, userSnap) {

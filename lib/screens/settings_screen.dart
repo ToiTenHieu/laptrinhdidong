@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/bottom_nav.dart';
 import 'login_screen.dart';
 import 'order_stats_screen.dart'; // 🔹 thêm dòng này
-
+import 'book_club_management_screen.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -304,6 +304,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const OrderStatsScreen()),
+                        );
+                      }),
+
+                      const SizedBox(height: 16),
+                      const Text("CÂU LẠC BỘ SÁCH",
+                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+
+                      _buildSettingItem(Icons.group_outlined, "Quản lý Câu lạc bộ", onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const BookClubManagementScreen()),
                         );
                       }),
 
