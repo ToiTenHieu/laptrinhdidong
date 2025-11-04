@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:intl/intl.dart'; // Bạn có thể dùng package này để format thời gian đẹp hơn
-import 'event_detail_screen.dart'; // Import trang chi tiết sự kiện của bạn
+import 'event_detail_screen.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final _auth = FirebaseAuth.instance;
-    final String? currentUserId = _auth.currentUser?.uid;
+    // ⭐️ SỬA: Bỏ dấu '_'
+    final auth = FirebaseAuth.instance;
+    final String? currentUserId = auth.currentUser?.uid;
 
     if (currentUserId == null) {
       return Scaffold(
@@ -20,30 +20,33 @@ class NotificationScreen extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text("Thông báo"),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 1. Truy vấn collection 'notifications'
         stream: FirebaseFirestore.instance
             .collection('notifications')
-            .where('userId', isEqualTo: currentUserId) // 2. Lọc theo ID người dùng
-            .orderBy('createdAt', descending: true) // 3. Sắp xếp mới nhất lên trên
-            .limit(50) // Giới hạn 50 thông báo gần nhất
+            .where('userId', isEqualTo: currentUserId)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
             .snapshots(),
         builder: (context, snapshot) {
+          // ... (code xử lý loading, error, empty giữ nguyên)
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return const Center(child: Text("Có lỗi xảy ra khi tải thông báo."));
+            return const Center(
+                child: Text("Có lỗi xảy ra khi tải thông báo."));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.notifications_off_outlined, size: 60, color: Colors.grey),
+                  Icon(Icons.notifications_off_outlined, size: 60,
+                      color: Colors.grey),
                   SizedBox(height: 16),
                   Text("Bạn chưa có thông báo nào."),
                 ],
@@ -54,15 +57,13 @@ class NotificationScreen extends StatelessWidget {
           final notifications = snapshot.data!.docs;
 
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
             itemCount: notifications.length,
             itemBuilder: (context, index) {
               final doc = notifications[index];
               final data = doc.data() as Map<String, dynamic>;
-
-              // Đánh dấu đã đọc/chưa đọc
               final bool isRead = data['read'] ?? false;
 
-              // Hiển thị thông báo
               return _buildNotificationTile(context, doc.id, data, isRead);
             },
           );
@@ -72,16 +73,15 @@ class NotificationScreen extends StatelessWidget {
   }
 
   // Widget con để hiển thị từng thông báo
-  Widget _buildNotificationTile(BuildContext context, String docId, Map<String, dynamic> data, bool isRead) {
+  Widget _buildNotificationTile(BuildContext context, String docId,
+      Map<String, dynamic> data, bool isRead) {
     final theme = Theme.of(context);
 
-    // Lấy thông tin cơ bản
+    // ... (code lấy title, body, type, timestamp giữ nguyên)
     final String title = data['title'] ?? 'Thông báo';
     final String body = data['body'] ?? 'Bạn có thông báo mới.';
     final String type = data['type'] ?? '';
     final Timestamp? timestamp = data['createdAt'] as Timestamp?;
-
-    // Format thời gian (ví dụ đơn giản)
     String timeAgo = "Vừa xong";
     if (timestamp != null) {
       final difference = DateTime.now().difference(timestamp.toDate().toLocal());
@@ -94,7 +94,7 @@ class NotificationScreen extends StatelessWidget {
       }
     }
 
-    // Chọn icon và màu dựa trên 'type'
+    // ... (code switch/case icon giữ nguyên)
     IconData iconData;
     Color iconColor;
     switch (type) {
@@ -102,15 +102,15 @@ class NotificationScreen extends StatelessWidget {
         iconData = Icons.event_note_rounded;
         iconColor = theme.colorScheme.primary;
         break;
-      case 'BOOK_DUE': // Thông báo nhắc hạn
+      case 'BOOK_DUE':
         iconData = Icons.timer_off_outlined;
         iconColor = theme.colorScheme.error;
         break;
-      case 'BOOK_BORROW': // Thông báo mượn sách
+      case 'BOOK_BORROW':
         iconData = Icons.book_outlined;
         iconColor = Colors.green;
         break;
-      case 'BOOK_RETURN': // Thông báo trả sách
+      case 'BOOK_RETURN':
         iconData = Icons.check_circle_outline;
         iconColor = Colors.grey;
         break;
@@ -119,24 +119,32 @@ class NotificationScreen extends StatelessWidget {
         iconColor = Colors.orange;
     }
 
-    return Container(
-      // Làm nổi bật thông báo chưa đọc
-      color: isRead ? Colors.transparent : theme.colorScheme.primary.withOpacity(0.05),
+    return Card(
+      elevation: isRead ? 0.5 : 2.0,
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
+        // ⭐️ SỬA: Thay thế withOpacity
+        tileColor: isRead ? Colors.white : theme.colorScheme.primary
+            .withAlpha((255 * 0.04).round()), // ~0.04 opacity
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16.0, vertical: 8.0),
         leading: CircleAvatar(
-          backgroundColor: iconColor.withOpacity(0.1),
+          // ⭐️ SỬA: Thay thế withOpacity
+          backgroundColor: iconColor.withAlpha((255 * 0.1).round()), // ~0.1 opacity
           child: Icon(iconData, color: iconColor, size: 24),
         ),
         title: Text(title, style: TextStyle(
             fontWeight: isRead ? FontWeight.normal : FontWeight.bold
         )),
-        subtitle: Text(body),
-        trailing: Text(timeAgo, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(body),
+        ),
+        trailing: Text(
+            timeAgo, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         onTap: () {
-          // 1. Đánh dấu đã đọc
           _markAsRead(docId);
-
-          // 2. Điều hướng (nếu có)
           _handleNotificationTap(context, data);
         },
       ),
@@ -154,31 +162,29 @@ class NotificationScreen extends StatelessWidget {
   void _handleNotificationTap(BuildContext context, Map<String, dynamic> data) {
     final String type = data['type'] ?? '';
 
-    // Ví dụ: Điều hướng đến trang chi tiết sự kiện
     if (type == 'CLUB_EVENT') {
-      final String? clubId = data['clubId'];
-      final String? eventId = data['eventId'];
+      final Map<String, dynamic> notificationData = data['data'] ?? {};
+
+      String? clubId = notificationData['clubId'];
+      String? eventId = notificationData['eventId'];
+
+      // ⭐️ SỬA: Dùng '??=' để thay thế 'if'
+      clubId ??= data['clubId'];
+      eventId ??= data['eventId'];
 
       if (clubId != null && eventId != null) {
-        // (Bạn cần import 'event_detail_screen.dart' ở đầu file này)
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(
-        //     builder: (context) => EventDetailScreen(
-        //       clubId: clubId,
-        //       eventId: eventId,
-        //     ),
-        //   ),
-        // );
-        print("Điều hướng đến Event $eventId của Club $clubId");
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                EventDetailScreen(
+                  // ⭐️ SỬA: Thêm '!' để khẳng định không null
+                  clubId: clubId!,
+                  eventId: eventId!,
+                ),
+          ),
+        );
       }
     }
-    // Tương tự, bạn có thể thêm logic cho 'BOOK_DUE', 'BOOK_BORROW'
-    // else if (type == 'BOOK_BORROW') {
-    //   final String? bookId = data['relatedId']; // Giả sử bạn lưu ID sách
-    //   if (bookId != null) {
-    //     // Điều hướng đến trang chi tiết sách
-    //   }
-    // }
   }
 }
