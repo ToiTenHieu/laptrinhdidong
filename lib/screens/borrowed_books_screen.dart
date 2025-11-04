@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'notification_service.dart';
 
 class BorrowedBooksScreen extends StatefulWidget {
   const BorrowedBooksScreen({super.key});
@@ -90,31 +91,28 @@ class _BorrowedBooksScreenState extends State<BorrowedBooksScreen> {
             const SizedBox(height: 16),
 
             // --- Danh sách sách từ Firestore ---
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: borrowedBooksStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text('Bạn chưa mượn quyển sách nào.'));
-                  }
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: borrowedBooksStream,
+              builder: (context, snapshot) {
+                // ... (code check snapshot giữ nguyên)
 
-                  // Chuyển dữ liệu Firestore -> Model
-                  final books = snapshot.data!.docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return BookModel.fromMap(data);
-                  }).where((book) {
-                    if (selectedFilter == 'Tất cả') return true;
-                    if (selectedFilter == 'Quá hạn') {
-                      return book.dueDate.isBefore(DateTime.now()) &&
-                          book.status.toLowerCase() != 'đã trả';
-                    }
-                    return book.status.toLowerCase() ==
-                        selectedFilter.toLowerCase();
-                  }).toList();
-
+                // Chuyển dữ liệu Firestore -> Model
+                final books = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  // ⭐️ SỬA: Truyền doc.id vào fromMap
+                  return BookModel.fromMap(doc.id, data);
+                }).where((book) {
+                  // ... (code lọc giữ nguyên)
+                  if (selectedFilter == 'Tất cả') return true;
+                  if (selectedFilter == 'Quá hạn') {
+                    return book.dueDate.isBefore(DateTime.now()) &&
+                        book.status.toLowerCase() != 'đã trả';
+                  }
+                  return book.status.toLowerCase() ==
+                      selectedFilter.toLowerCase();
+                }).toList();
+                
                   if (books.isEmpty) {
                     return const Center(child: Text('Không có sách phù hợp.'));
                   }
@@ -137,7 +135,10 @@ class _BorrowedBooksScreenState extends State<BorrowedBooksScreen> {
 }
 
 // ======== MODEL ========
+// ======== MODEL ========
 class BookModel {
+  final String id; // ⭐️ MỚI: ID của document mượn sách
+  final String bookId; // ⭐️ MỚI: ID của sách gốc
   final String title;
   final String author;
   final String image;
@@ -147,6 +148,8 @@ class BookModel {
   final String? description;
 
   BookModel({
+    required this.id, // ⭐️ MỚI
+    required this.bookId, // ⭐️ MỚI
     required this.title,
     required this.author,
     required this.image,
@@ -156,8 +159,10 @@ class BookModel {
     this.description,
   });
 
-  factory BookModel.fromMap(Map<String, dynamic> data) {
+  factory BookModel.fromMap(String docId, Map<String, dynamic> data) { // ⭐️ THÊM `docId`
     return BookModel(
+      id: docId, // ⭐️ MỚI
+      bookId: data['book_id'] ?? '', // ⭐️ MỚI (Giả sử bạn lưu book_id trong doc)
       title: data['book_title'] ?? 'Không có tiêu đề',
       author: data['book_author'] ?? 'Không rõ tác giả',
       image: data['book_image'] ?? '',

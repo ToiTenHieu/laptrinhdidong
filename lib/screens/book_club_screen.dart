@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'book_club_detail.dart';
 
 class BookClubsScreen extends StatefulWidget {
   const BookClubsScreen({super.key});
@@ -190,9 +191,21 @@ class _BookClubsScreenState extends State<BookClubsScreen> {
                                     ),
                                     const Spacer(),
                                     ElevatedButton(
-                                      onPressed: isMember ? null : () => _joinClub(clubId),
-                                      child: Text(isMember ? "Đã tham gia" : "Tham gia"),
+                                      onPressed: () {
+                                        if (isMember) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => ClubDetailScreen(clubId: clubId),
+                                            ),
+                                          );
+                                        } else {
+                                          _joinClub(clubId);
+                                        }
+                                      },
+                                      child: Text(isMember ? "Truy cập" : "Tham gia"),
                                     ),
+
                                   ],
                                 ),
                               ],

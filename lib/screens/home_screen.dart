@@ -8,7 +8,7 @@ import 'borrowed_books_screen.dart';
 import 'explore_tab.dart';
 import 'favorite_tab.dart';
 import 'package:intl/intl.dart';
-import 'notifications_screen.dart';
+import 'notification_screen.dart';
 import 'help_support_screen.dart';
 import 'wishlist_screen.dart';
 import 'book_club_screen.dart';
@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Icons.notifications_none,
                 "Thông báo",
                 onTap: () {
-                  _navigateTo(context, const NotificationsScreen());
+                  _navigateTo(context, const NotificationScreen());
                 },
               ),
 

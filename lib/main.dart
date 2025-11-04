@@ -78,7 +78,7 @@ class AuthWrapper extends StatelessWidget {
                     onPressed: () async {
                       await FirebaseAuth.instance.signOut();
                     },
-                    child: const Text('Đăng xuất'),
+                    child: const Text('Đăng nhập'),
                   ),
                 ],
               ),
